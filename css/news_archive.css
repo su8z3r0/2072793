@@ -1,0 +1,17 @@
+.news-archive-wrapper{
+	float: left;
+	clear: both;
+	font-family: Helvetica;
+	font-size: 14px;
+	height: auto;
+}
+
+.region-content .news-archive-wrapper ul{
+	padding: 2px 0 2px 0;
+	margin: 0 0 0 15px;
+}
+
+.news-archive-posts-leaf{
+    list-style: none;
+    padding: 0;
+}
