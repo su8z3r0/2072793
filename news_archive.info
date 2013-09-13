@@ -5,6 +5,10 @@ core = 7.x
 file[] = news_archive.module
 file[] = news_archive.install
 
+dependencies[] = views
+dependencies[] = date_views
+dependencies[] = libraries
+
 configure = admin/config/news-archive/settings
 
 version = 7.x-1.0
