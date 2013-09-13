@@ -7,16 +7,6 @@
  */
 
 /**
- * Impelements hook_init()
- */
-function news_archive_init() {
-  drupal_add_js( base_path() . libraries_get_path('jquery.treeview') . '/jquery.treeview.js', 'external');
-  drupal_add_css( base_path() . libraries_get_path('jquery.treeview') . '/jquery.treeview.css', 'external');
-  
-
-}
- 
-/**
  * Implements hook_menu()
  */
  function news_archive_menu() {
@@ -26,7 +16,7 @@ function news_archive_init() {
      'title' => 'News Aarchive',
      'description' => 'Configure News Archive module settings.',
      'access arguments' => array('administer site configuration'),
-     'file' => 'includes/news_archive_admin.inc',
+     'file' => 'modules/news_archive_admin.inc',
      'page callback' => 'drupal_get_form',
      'page arguments' => array('news_archive_admin'),    
      'weight' => -10,
@@ -50,15 +40,9 @@ function news_archive_init() {
  * Implements hook_block_info()
  */
  function news_archive_block_info() {
-   
-   $alias = _news_archive_get_node_type_alias(variable_get('news_archive_content_type'));
-   
    $blocks = array();
    $blocks['news_archive_block'] = array(
      'info' => t('News Archive'),
-	 'weight' => 0,
-	 'visibility' => 1,
-	 'pages' => $alias . "\n" . $alias . "/*\n",
    );
    
    return $blocks;
@@ -81,8 +65,8 @@ function news_archive_init() {
              drupal_get_path('module', 'news_archive') . '/css/news_archive.css',
              ),
              'js' => array(
-               drupal_get_path('module', 'news_archive') . '/js/news_archive.js',			   
-               array('data' => array('news_archive' => array('news_archive_path' => "http://" . $_SERVER['HTTP_HOST'] . base_path() . drupal_get_path('module',  'news_archive') ), ), 'type' => 'setting')			   
+               drupal_get_path('module', 'news_archive') . '/js/news_archive.js',
+               array('data' => array('news_archive' => array('news_archive_path' => "http://" . $_SERVER['HTTP_HOST'] . base_path() . drupal_get_path('module',  'news_archive') ), ), 'type' => 'setting')
              ),
            ),
            '#prefix' => "<div class='news-archive-wrapper'>",
@@ -94,39 +78,19 @@ function news_archive_init() {
        break;
   }
  }
- 
- function news_archive_views_api() {
-  if ( count(_news_archive_get_content_types() )){
-    return array(
-      'api' => 3.0,
-      'path' => drupal_get_path('module', 'news_archive') . '/includes/views/',    
-    );
-  }
-}
 
 /**
  * CUSTOM FUNCTIONS
  */ 
  
  function get_article_archive( $delta ) {
-   
-   $output_type = variable_get('news_archive_block_type', 0);
-   
-   $alias = "";
-   if(variable_get('news_archive_content_type_alias') && variable_get('news_archive_content_type_alias') != "" && variable_get('news_archive_content_type_alias') != "content"){
-     $alias = variable_get('news_archive_content_type_alias');
-   } else {
-     $alias = "page";
-   }  
-   
-   
    switch ( $delta ) {
      case 'news_archive_block' :
-	
+
        $table = 'field_data_' . variable_get('news_archive_content_type_fields');
        $field = variable_get('news_archive_content_type_fields') . '_value';
    
-       //$current_post = _get_current_node_info( arg(count(arg()) -1 ), $field, $table );
+       $current_post = _get_current_node_info( arg(count(arg()) -1 ), $field, $table );
        
        //_array_print( $current_post );
        
@@ -148,163 +112,96 @@ function news_archive_init() {
        //_array_print($fields);
 
        $posts = array();
-       
-	   switch( $output_type ) {
-	     case 0 : 	     
-		   $html = "<ul class='news-archive list'>\n";
-		   foreach ($res_year as $row) {
-		     
-			 $months = db_query('SELECT DISTINCT Monthname(' . $field . ') FROM {' . $table . '} WHERE Year(' . $field . ') = ' . $row . ' ORDER BY Year(' . $field . ') DESC')->fetchCol();
-			 
-		     foreach ($months as $row_m => $val_m) {
-			   
-			   //print $val_m . "==" . $current_post['month'] . '<br>';
-			   
-			   ($val_m == $current_post['month'] && $row == $current_post['year'] ) ? $class_month = 'active' : $class_month = '';
-			   
-			 
-               
-			   
-			   $rows = db_query("SELECT entity_id FROM {" . $table . "} WHERE Year(" . $field . ") = " . $row . " AND Monthname(" . $field . ") ='" . $val_m . "' ORDER BY Year(" . $field . ") DESC, Month(" . $field . ") DESC")->fetchCol();
-               
-			   
-			   
-			   $rows_count = 0;
-			   
-			   $rows_count = db_query("SELECT entity_id FROM {" . $table . "} WHERE Year(" . $field . ") = " . $row . " AND Monthname(" . $field . ") ='" . $val_m . "' ORDER BY Year(" . $field . ") DESC, Month(" . $field . ") DESC")->rowCount();
-			   
-			   $date = $row . "-" . date('m', strtotime($val_m));
-			   
-			   $html .= '<li class="' . $class_month . '">';
-			   $html .= '<span ><a href="' . base_path() . $alias . '/' . $date . '" class="item-title">' . $val_m . " " . $row . ' </a><span class="items-count">(' . $rows_count . ')</span></span>';
-			   
-               $html .= "\t\t\t\t<ul class='news-archive-posts'>";
-                
-               $level_2 = array();
-               $str_builder = "";
-               
-               foreach ( $rows as $nid ) {
-                 
-                 ($nid == $current_post['nid']) ? $class_post = 'active last' : $class_post = '';
-                 
-                 $title = db_query("SELECT title FROM {node} WHERE nid = " . $nid )->fetchCol();
-                 
-                 $node = node_load($nid);
-                 $path = drupal_lookup_path('alias', 'node/' . $node->nid);
-                 
-                 $link = l( $title[0], "http://" . $_SERVER['HTTP_HOST'] . base_path() . $path);
-                 
-                 $html .= "\t\t\t\t\t<li class='news-archive-posts-leaf post-" . $node->nid . " " . $class_post . " last'><a href='" . base_path() . $alias . "/" . $val_m . "/" . $row . "' class='item-title'>" . $link . "</a></li>";
-               
-               }
-              $html .= "\t\t\t\t</ul>";
-              
-              $html .="\t\t</li>";
-			   
-             }
-           }			 
-		   
-	       break;
-		   
-		 case 1 :
-           
-           $html = "<ul class='news-archive treeview'>\n";
-           $tester = array();
-           
-           $class_year = "";
-           $class_month = "";
-           $class_post = "";
-           
-           foreach ($res_year as $row) {
-            
-            ($row == $current_post['year']) ? $class_year = 'active' : $class_year = '';
-            
-            $html .= "<li class='news-archive-year-leaf year-" . $row . " " . $class_year . "'>\n";
-            $html .= "<span class='item-title'>" . $row . "</span>\n";
-            $html .= "\t<ul class='news-archive-month'>\n";
-            
-             //print 'SELECT Month(' . $field . '), entity_id FROM ' . $table . ' WHERE Year(' . $field . ') = ' . $row .' ORDER BY Year(' . $field . ') DESC' . '<br>';
-            $months = db_query('SELECT DISTINCT Monthname(' . $field . ') FROM {' . $table . '} WHERE Year(' . $field . ') = ' . $row . ' ORDER BY Year(' . $field . ') DESC')->fetchCol();
-            
-            $count_months = 0;
-            
-			/*foreach ($months as $row_m => $val_m) {
-			  
-			  $count_months++;
-			  
-			}*/
-			
-            foreach ($months as $row_m => $val_m) {
-              
-              ($val_m == $current_post['month'] && $row == $current_post['year'] ) ? $class_month = 'active' : $class_month = '';
-              
-			  
-              $rows = db_query("SELECT entity_id FROM {" . $table . "} WHERE Year(" . $field . ") = " . $row . " AND Monthname(" . $field . ") ='" . $val_m . "' ORDER BY Year(" . $field . ") DESC, Month(" . $field . ") DESC")->fetchCol();
-              
-			  
-			  $rows_count = db_query("SELECT entity_id FROM {" . $table . "} WHERE Year(" . $field . ") = " . $row . " AND Monthname(" . $field . ") ='" . $val_m . "' ORDER BY Year(" . $field . ") DESC, Month(" . $field . ") DESC")->rowCount();
 
-           
-              $html .= "\t\t<li class='news-archive-month-leaf month-" . strtolower(t($val_m)) . " " . $class_month . "'>\n";
-			  
-			  $date = $row . "-" . date('m', strtotime($val_m));
-			  
-              $html .= '\t\t\t<span ><a href="' . base_path() . $alias . '/' . $date . '" class="item-title">' . $val_m . " " . $row . ' </a><span class="items-count">(' . $rows_count . ')</span></span>\n';//CIRO
-              //print "SELECT entity_id FROM {" . $table . "} WHERE Monthname(" . $field . ") ='" . $val_m . "' AND Year(" . $field . ") = " . $row . " ORDER BY Year(" . $field . ") DESC<br>";               
-			  
-              
-              $html .= "\t\t\t\t<ul class='news-archive-posts'>";
-              
-              $level_2 = array();
-              $str_builder = "";
-              
-              foreach ( $rows as $nid ) {
-                
-               ($nid == $current_post['nid']) ? $class_post = 'active' : $class_post = '';
-           
-               $title = db_query("SELECT title FROM {node} WHERE nid = " . $nid )->fetchCol();
-           
-               $node = node_load($nid);
-               $path = drupal_lookup_path('alias', 'node/' . $node->nid);
-           
-               $link = l( $title[0], "http://" . $_SERVER['HTTP_HOST'] . base_path() . $path);
-           
-               $html .= "<li class='news-archive-posts-leaf post-" . $node->nid . " " . $class_post . "'><span class='item-title'>" . $link . "</span></li>";
-           
-             }
-           
-              $html .= "\t\t\t\t</ul>";
-              
-              $html .="\t\t</li>";
-              
-              
-              
-            }
+       $html = "<ul class='news-archive'>\n";
+       
+       $tester = array();
+       
+       $class_year = "";
+       $class_month = "";
+       $class_post = "";
+       
+       foreach ($res_year as $row) {
+        
+        ($row == $current_post['year']) ? $class_year = 'active' : $class_year = '';
+        
+        $html .= "<li class='news-archive-year-leaf year-" . $row . " " . $class_year . "'>\n";
+        $html .= $row . "\n";
+        $html .= "\t<ul class='news-archive-month'>\n";
+        
+         //print 'SELECT Month(' . $field . '), entity_id FROM ' . $table . ' WHERE Year(' . $field . ') = ' . $row .' ORDER BY Year(' . $field . ') DESC' . '<br>';
+        $months = db_query('SELECT DISTINCT Monthname(' . $field . ') FROM {' . $table . '} WHERE Year(' . $field . ') = ' . $row . ' ORDER BY Year(' . $field . ') DESC')->fetchCol();
+        
+        $count_months = 0;
+        
+        foreach ($months as $row_m => $val_m) {
+          
+          ($val_m == $current_post['month'] && $row == $current_post['year'] ) ? $class_month = 'active' : $class_month = '';
+
+          $rows = db_query("SELECT entity_id FROM {" . $table . "} WHERE Year(" . $field . ") = " . $row . " AND Monthname(" . $field . ") ='" . $val_m . "' ORDER BY Year(" . $field . ") DESC, Month(" . $field . ") DESC")->fetchCol();
+          
+          //GET ARTICLE COUNT
+          $rows_count = 0;
+          foreach ( $rows as $nid ) {
             
-            $level_1 = array();
+            ($nid == $current_post['nid']) ? $class_post = 'active' : $class_post = '';
+
+            $rows_count = db_query("SELECT title FROM {node} WHERE nid = " . $nid )->rowCount();
+
+          }
+
+
+          $html .= "\t\t<li class='news-archive-month-leaf month-" . strtolower(t($val_m)) . " " . $class_month . "'>\n";
+          $html .= "\t\t\t" . t($val_m) . " (" . $rows_count . ")\n";
+          //print "SELECT entity_id FROM {" . $table . "} WHERE Monthname(" . $field . ") ='" . $val_m . "' AND Year(" . $field . ") = " . $row . " ORDER BY Year(" . $field . ") DESC<br>";
+         
+          
+          $html .= "\t\t\t\t<ul class='news-archive-posts'>";
+          
+          $level_2 = array();
+          $str_builder = "";
+          
+          foreach ( $rows as $nid ) {
             
-            $res_months[$count] = array( $row => $posts);
-            
-            $posts = array();
-           
-            $html .= "\t</ul>";
-            $html .= "</li>";
-            
-            $count++;
-           }
-           
-           
-           break;
-		   
-		 
-       } 
-	   $html .= "\t\t\t<li class='empty-item'>&nbsp;</li>";
-       $html .= "\t\t\t<li><a href='" . base_path() . $alias . "/all'>" . t('Show All') . "</a></li>";
-	   $html .= "</ul>";
-     break;
+           ($nid == $current_post['nid']) ? $class_post = 'active' : $class_post = '';
+
+           $title = db_query("SELECT title FROM {node} WHERE nid = " . $nid )->fetchCol();
+
+           $node = node_load($nid);
+           $path = drupal_lookup_path('alias', 'node/' . $node->nid);
+
+           $link = l( $title[0], "http://" . $_SERVER['HTTP_HOST'] . base_path() . $path);
+
+           $html .= "<li class='news-archive-posts-leaf post-" . $node->nid . " " . $class_post . "'>" . $link . "</li>";
+
+         }
+       
+          $html .= "\t\t\t\t</ul>";
+          
+          $html .="\t\t</li>";
+          
+          $count_months++;
+          
+        }
+        
+        $level_1 = array();
+        
+        $res_months[$count] = array( $row => $posts);
+        
+        $posts = array();
+       
+        $html .= "\t</ul>";
+        $html .= "</li>";
+        
+        $count++;
+       }
+       
+       $html .= "</ul>";
+       
+       return $html;
+       
+       break;
    }
-   
-   return $html;
  }
  
  
@@ -312,148 +209,16 @@ function news_archive_init() {
    
    $info = array();
    
-   if(is_numeric($nid)) {
-   
    $nid_year = db_query('SELECT DISTINCT Year(' . $field . ') FROM {' . $table . '} WHERE entity_id = ' . $nid . ' ORDER BY Year(' . $field . ') DESC')->fetchColumn(0);
    $nid_month = db_query('SELECT DISTINCT Monthname(' . $field . ') FROM {' . $table . '} WHERE entity_id = ' . $nid . ' ORDER BY Year(' . $field . ') DESC')->fetchColumn(0);
    
-     if ( $nid_year == "" || $nid_month == "" ) {
-       return array();
-     }
-     else {   
-       return array('year' => $nid_year, 'month' => $nid_month, 'nid' => $nid);
-     }
-   
-   }
- }
- 
- 
- function _news_archive_get_content_types() {
-   
-   $return_array = array();
-   
-      
-   //Get all content type list
-   $types = node_type_get_types();
-   $node_types = array();     
-   
-   foreach ( $types as $node_type ) {
-     $node_types[$node_type->type] = $node_type->name;
-   }
-         
-   //get all field of a given bundle
-   $content_type_fields = array();
-   $count = 0;
-   foreach ($node_types as $key => $val) {     
-     $content_type_fields = field_info_instances("node", $key);
-     if ( $count == 0 ) {
-       variable_set('news_archive_first_bundle', $key);
-     }
-     foreach ($content_type_fields as $keys => $values) {
-       //print $keys . " -> " . $values['widget']['module'] . "<br>";
-       if ( $values['widget']['module'] == 'date' ) {
-         $return_array[$key] = $val;
-       }
-     }
-     $count++;
-   }
-     
-   
-   if ( count( $return_array ) > 0 ) {
-     return $return_array;
-   }
-   else {     
-     drupal_set_message(t('No date field exists.'), 'error');
+   if ( $nid_year == "" || $nid_month == "" ) {
      return array();
    }
- }
-
-
- function _news_archive_get_content_type_fields( $content_type='' ) {
-
-   
-   $fields_info_instance = array();
-   $fields = array();
-   
-   $fields_info_instance = field_info_instances("node", $content_type);
-   
-   foreach ( $fields_info_instance as $key => $val ) {
-     if ( $val['widget']['module'] == 'date' ) {
-       $fields[$key] = $key;
-     }
-
+   else {   
+     return array('year' => $nid_year, 'month' => $nid_month, 'nid' => $nid);
    }
-   
-   return $fields;   
  }
- 
- 
- function _news_archive_get_node_type_alias( $node_type ) {
-   
-   $nids = db_select('node', 'n')
-    ->fields('n', array('nid'))
-    ->fields('n', array('type'))
-    ->condition('n.type', $node_type)
-    ->execute()
-    ->fetchAllKeyed();
-  
-   $alias = "";
-   $node_path = "";
-   
-   $count = 0;
-   $alias = "";
-   $test = array();
-   
-   foreach( $nids as $key => $val ) {
-     if( $count == 0 ) {
-	   
-	   $nid = $key;
-	   
-	   $alias_url = drupal_lookup_path('alias',"node/" . $nid);
-	   
-	   $alias_pieces = explode( "/", $alias_url );
-	   
-	   if(count($alias_pieces) > 1) {	     
-		 for ( $i = 0; $i < count($alias_pieces); $i++ ) {		   
-		   if( $i == 0) {
-		     $alias  = $alias_pieces[$i];
-			 $test[$i] = $alias_pieces[$i];
-			 //watchdog('test-' . $i, $alias_piece[$i]);
-		   } elseif( $i > 0 && $i < (count($alias_pieces) -1)) {
-		     $alias  .= "/" . $alias_pieces[$i];
-			 $test[$i] = $alias_pieces[$i];
-			 //watchdog('test-' . $i, $alias_piece[$i]);
-		   }
-		 }	   
-	   }
-
-	   $count++;
-     }
-   }   
-   return $alias;   
- }
- 
- 
- function news_archive_get_menu_names() {
-   $menus = menu_get_names();
-   
-   $menu_titles = array(t('- None -'));
-   
-   foreach( $menus as $key => $val ) {
-     
-     $menu = menu_build_tree($val);
-	 
-     $menu_title = db_query("SELECT title FROM {menu_custom} WHERE menu_name='" . $val . "'")->fetchAssoc();
-	 
-	 $menu_titles[$val] = $menu_title['title'];
-	 
-   }   
-   
-   return $menu_titles;
-   
- }
- 
- 
  
  function _array_print( $ar = array() ) {
   
